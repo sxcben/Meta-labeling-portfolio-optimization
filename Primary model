@@ -1,0 +1,10 @@
+def get_buy_trend(data):
+    data['MA10'] = data['Close'].rolling(10).mean()
+    data['MA50'] = data['Close'].rolling(60).mean()
+    # data = data.dropna()
+    conditions = [data['MA10']>data['MA50'],     #on achète dans ce cas
+                  data['MA10']<data['MA50']]  #on vend dans ce cas
+
+    choices = [1,-1]    #1=achat et 0=vente
+    data['position']=np.select(conditions,choices)
+    return data
