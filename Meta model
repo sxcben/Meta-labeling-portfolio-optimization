@@ -1,9 +1,46 @@
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import classification_report
+from sklearn.svm import SVC
+
+
+import datetime as dt
+import yfinance as yf
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+
+from sklearn.metrics import log_loss
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, roc_curve, confusion_matrix, RocCurveDisplay, ConfusionMatrixDisplay, roc_auc_score, PrecisionRecallDisplay, precision_recall_curve
+from scipy.stats import norm
+from statsmodels.distributions.empirical_distribution import ECDF
+import quantstats as qs
+
+
+import matplotlib.pyplot as plt
+from labeling import *
+from constraints import get_buy_trend
+
+
 stock = 'aapl'
 stockstartingdate = '2010-01-01'
-stockendingdate = '2023-06-01'
+stockendingdate = '2022-01-01'
+stockstartingdate2 = '2022-05-01'
+stockendingdate2 = '2023-07-01'
 
-def get_meta_model(stock,stockstartingdate,stockendingdate):
 
+
+
+
+
+def get_meta_model(stock,stockstartingdate,stockendingdate): 
+      # stock = 'aapl'
+      # stockstartingdate = '2010-01-01'
+      # stockendingdate = '2023-06-01'
 
       data = yf.download(stock,stockstartingdate,stockendingdate)
       Close = data['Close']
@@ -14,47 +51,115 @@ def get_meta_model(stock,stockstartingdate,stockendingdate):
       Volatility = getDailyVol(Close,span0=100)
       returns = Close.pct_change()
       # how many days we hold the stock which set the vertical barrier
-      t_final = 10
+      t_final = 10 
       #the up and low boundary multipliers
       upper_lower_multipliers = [1, 1]
 
 
 
       #allign the index
-      prices = Close[Volatility.index]
+      Close = Close[Volatility.index]
       data = get_buy_trend(data)
       position = data['position']
-
+      print(position.iloc[100:140])
       barriers = get_3_barriers(Volatility,Close,t_final,upper_lower_multipliers)
       labels=get_labels(barriers,returns,High,Low,Volume,Open,Volatility,position)
 
       y = labels["meta_labels"]
-      x = labels[["returns","High","Low","Volume","Open","Volatility"]]
+      
+      x = labels[["High","Low","Volume","Open"]]
       x_train, x_test, y_train, y_test  = train_test_split(x,y,test_size=0.25,random_state=42)
       y_train = y_train.astype(int)
 
       y_test = y_test.astype(int)
-
+                                                
       modelerf = RandomForestClassifier()
       modelerf.fit(x_train,y_train)
       importance = pd.DataFrame(modelerf.feature_importances_,index = x_train.columns, columns = ["importance"]).sort_values("importance", ascending = False)
 
-      score = modelerf.score(x_test,y_test)
 
+
+      accuracy = 0 #y.value_counts()[1]/y.count()
       # Faites des prédictions sur l'ensemble de test
       predictions = modelerf.predict(x_test)
 
+      score = accuracy_score(predictions,y_test)
+
       Confusion_matrix = pd.DataFrame(confusion_matrix(y_test,predictions),
-                                    index = ["1_donnés","-1_donnés"],
-                                    columns = ["1_prédits","-1_prédits"])
-
+                                    index = ["1_donnés","0_donnés"],
+                                    columns = ["1_prédits","0_prédits"])
+      
       Report = classification_report(y_test, predictions)
+      proba = modelerf.predict_proba(x_test)
 
-      return modelerf, importance, score, Confusion_matrix, Report
+      return modelerf, importance, score, Confusion_matrix, Report, accuracy, y
+
+def secondary_model(stock,startingdate1,endingdate1,startingdate2,endingdate2):
+      modelrf = get_meta_model(stock,startingdate1,endingdate1)[0]
+
+      data = yf.download(stock,startingdate2,endingdate2)
+      Close = data['Close']
+      High = data['High']
+      Low = data['Low']
+      Volume = data['Volume']
+      Open = data['Open']
+      Volatility = getDailyVol(Close,span0=100)
+      returns = Close.pct_change()
+      # how many days we hold the stock which set the vertical barrier
+      t_final = 10 
+      #the up and low boundary multipliers
+      upper_lower_multipliers = [1, 1]
+
+      data = yf.download(stock,startingdate1,endingdate2)
+      data = get_buy_trend(data)
+    
+      position = data['position']
+      position = position.loc[Close.index]
+      
+    
+      x_test = pd.DataFrame({
+    'High': High,
+    'Low': Low,
+    'Volume': Volume,
+    'Open': Open
+})
+      prediction = modelrf.predict(x_test)
+      print(prediction)
+      #prediction = [-1 if value == 0 else value for value in prediction]
+      prediction_series = pd.Series(prediction, index=position.index)
+      position2 = position.replace(0,-1)
+      # Multiplier la colonne 'Multiplier' du DataFrame par la série multipliers
+      position2 = position2.multiply(prediction_series)
+      position2 = [0 if value == 1 else value for value in position2]
+
+      barriers = get_3_barriers(Volatility,Close,t_final,upper_lower_multipliers)
+      labels1=get_labels(barriers,returns,High,Low,Volume,Open,Volatility,position)
+      labels2=get_labels(barriers,returns,High,Low,Volume,Open,Volatility,position2)
+      y1 = labels1["meta_labels"]
+      y2 = [1 if prediction[i]==y1[i] else 0 for i in range(len(y1))]
+      y2 = labels2["meta_labels"]
+      return y1,y2
+
+#Confusion_matrix,Report = first_model(stock,stockstartingdate,stockendingdate)[1],first_model(stock,stockstartingdate,stockendingdate)[2]
 
 
+# Confusion_matrix,Report = get_meta_model(stock,stockstartingdate,stockendingdate)[3],get_meta_model(stock,stockstartingdate,stockendingdate)[4]
+# accuracy = get_meta_model(stock,stockstartingdate,stockendingdate)[5]
+# proba = get_meta_model(stock,stockstartingdate,stockendingdate)[0].predict_proba
+# meta_labels_1 = get_meta_model(stock,stockstartingdate,stockendingdate)[6].value_counts()[1]
+# meta_labels_0 = get_meta_model(stock,stockstartingdate,stockendingdate)[6].value_counts()[0]
+score = get_meta_model(stock,stockstartingdate,stockendingdate)[2]
+
+# print("predictions justes du premier model:",meta_labels_1)
+# print("predictions fausses du premier model:",meta_labels_0)
+# print("accuracy du premier model:", accuracy)
+
+# print("Confusion Matrix du 2nd modele:",Confusion_matrix)
+# print("Report du 2nd modele:",Report)
+# print(score)
+
+# y1,y2 = secondary_model(stock,startingdate1=stockstartingdate,endingdate1=stockendingdate,startingdate2=stockstartingdate2,endingdate2=stockendingdate2)
+# print(y1)
+# print(y2.value_counts())
 
 
-Confusion_matrix,Report = get_meta_model(stock,stockstartingdate,stockendingdate)[3],get_meta_model(stock,stockstartingdate,stockendingdate)[4]
-print(Confusion_matrix)
-print(Report)
