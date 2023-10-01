@@ -1,3 +1,38 @@
+#libraries
+import yfinance as yf
+import numpy as np
+import pandas as pd
+from datetime import datetime
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+import datetime as dt
+
+
+from pypfopt.efficient_frontier import EfficientFrontier
+from pypfopt import risk_models
+from pypfopt import expected_returns
+plt.style.use('fivethirtyeight')
+
+# stock = 'msft'
+# stockstartingdate = '2010-01-01'
+# stockendingdate = '2023-06-01'
+
+
+
+# df = pd.DataFrame()
+
+# data = yf.download(stock,stockstartingdate,stockendingdate)
+# df = data['Close']
+# High = data['High']
+# Low = data['Low']
+# Volume = data['Volume']
+# Open = data['Open']
+# returns = df.pct_change()
+# index=df.index
+# t_final = 10
+# upper_lower_multipliers = [1, 1]
+
+
 def getFixedTimeHozironLabel(close,tau):
     startingprice = close[0]
     endingprice = close[-1]
@@ -8,7 +43,7 @@ def getFixedTimeHozironLabel(close,tau):
         return 1
     else :
         return 0
-
+    
 
 
 
@@ -28,17 +63,17 @@ def getDailyVol(close,span0=100):
 
 def get_3_barriers(daily_volatility,prices,t_final,upper_lower_multipliers):
     #create a container
-    barriers = pd.DataFrame(columns=['days_passed',
+    barriers = pd.DataFrame(columns=['days_passed', 
               'price', 'vert_barrier', \
               'top_barrier', 'bottom_barrier'], \
                index = daily_volatility.index)
-
+    
     for day, vol in daily_volatility.items():
         days_passed = len(daily_volatility.loc[daily_volatility.index[0] : day])
-        #set the vertical barrier
+        #set the vertical barrier 
         if (days_passed + t_final < len(daily_volatility.index) and t_final != 0):
             vert_barrier = daily_volatility.index[days_passed + t_final]
-
+            
         else:
             vert_barrier = np.nan
         #set the top barrier
@@ -50,12 +85,12 @@ def get_3_barriers(daily_volatility,prices,t_final,upper_lower_multipliers):
         #set the bottom barrier
         if upper_lower_multipliers[1] > 0:
             bottom_barrier = prices.loc[day] - prices.loc[day] * upper_lower_multipliers[1] * vol
-        else:
+        else: 
             #set it to NaNs
             bottom_barrier = pd.Series(index=prices.index)
-        barriers.loc[day, ['days_passed', 'price',
+        barriers.loc[day, ['days_passed', 'price', 
         'vert_barrier','top_barrier', 'bottom_barrier']] = days_passed, prices.loc[day], vert_barrier, top_barrier, bottom_barrier
-
+         
     return barriers
 
 # barriers = get_3_barriers(daily_volatility,df,t_final,upper_lower_multipliers)
@@ -88,7 +123,7 @@ def get_labels(barriers,returns,High,Low,Volume,Open,daily_volatility,position):
             #set the profit taking and stop loss conditons
             condition_pt = (barriers.price[start: end] >= top_barrier).any()
             condition_sl = (barriers.price[start: end] <= bottom_barrier).any()
-
+           
             #get the first index
             indices_pt = (barriers.price[start: end] >= top_barrier)
             first_index_pt = 0
@@ -102,7 +137,7 @@ def get_labels(barriers,returns,High,Low,Volume,Open,daily_volatility,position):
                 first_index_sl += 1
 
             #assign the labels
-
+            
             if condition_pt and first_index_pt<first_index_sl:
                 barriers['out'][i] = 1
                 labels['out'][i] = 1
@@ -116,16 +151,16 @@ def get_labels(barriers,returns,High,Low,Volume,Open,daily_volatility,position):
                 labels['Volatility'][i]=daily_volatility[i+first_index_pt]
             elif condition_sl :
                 barriers['out'][i] = -1
-                labels['out'][i] = -1
+                labels['out'][i] = -1  
                 labels['meta_labels'][i] = max(0,-np.sign(position[i]))
                 labels['returns'][i]=returns[i+first_index_sl]
-                labels['High'][i]=High[i+first_index_sl]
+                labels['High'][i]=High[i+first_index_sl]  
                 labels['Low'][i]=Low[i+first_index_sl]
                 labels['Volume'][i]=Volume[i+first_index_sl]
                 labels['Open'][i]=Open[i+first_index_sl]
                 labels['delta_time'][i]=first_index_sl
                 labels['Volatility'][i]=daily_volatility[i+first_index_sl]
-            else:
+            else: 
                 barriers['out'][i] = np.sign(price_final/price_initial -1) #0
                 labels['out'][i] = np.sign(price_final/price_initial -1)  #0
                 labels['meta_labels'][i] = max(0,np.sign(position[i]*labels['out'][i]))
@@ -136,21 +171,21 @@ def get_labels(barriers,returns,High,Low,Volume,Open,daily_volatility,position):
                 labels['Open'][i]=Open.loc[end]
                 labels['delta_time'][i]=end - start
                 labels['Volatility'][i]=daily_volatility.loc[end]
-
+            
 
     labels = labels.dropna()
     return labels
 
-# labels = get_labels(barriers,returns,High,Low,Volume,Open)
+# labels = get_labels(barriers,returns,High,Low,Volume,Open,daily_volatility,position=)
 
-def disp_barriers(barriers,day):
-    plt.plot(barriers.out,'bo')
+def disp_barriers(barriers,day,t_final):
+    
 
 
     fig,ax = plt.subplots()
     ax.set(title='Microsoft stock price',
         xlabel='date', ylabel='price')
-    jour = 120
+    jour = 110
     ax.plot(barriers.price[jour: jour+100])
     start = barriers.index[jour+20]
     end = barriers.index[jour+20+t_final]
@@ -160,11 +195,12 @@ def disp_barriers(barriers,day):
     ax.plot([start,end],[upper_barrier,upper_barrier], 'r--')
     ax.plot([start, start], [lower_barrier, upper_barrier], 'r-')
     ax.plot([end, end], [lower_barrier, upper_barrier], 'r-')
-    ax.set_ylim(200)
+    # ax.set_ylim(200)
 
     print(barriers.index[jour+20])
     print(barriers.loc[barriers.index[jour+20]])
-    # plt.plot(index,prices)
+    # plt.plot(index,barriers.price)
     plt.show()
     return
 
+# print(disp_barriers(barriers,10,t_final))
