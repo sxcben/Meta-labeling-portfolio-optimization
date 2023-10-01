@@ -1,0 +1,29 @@
+!pip install yfinance
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import classification_report
+import scipy.cluster.hierarchy as sch
+import datetime as dt
+import yfinance as yf
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from sklearn.metrics import log_loss
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, roc_curve, confusion_matrix, RocCurveDisplay, ConfusionMatrixDisplay, roc_auc_score, PrecisionRecallDisplay, precision_recall_curve
+from scipy.stats import norm
+from statsmodels.distributions.empirical_distribution import ECDF
+import quantstats as qs
+import matplotlib.pyplot as plt
+
+
+pd.set_option('display.max_colwidth', None)
+pd.set_option('expand_frame_repr',False)
+
+
+stock = 'aapl'
+stockstartingdate = '2010-01-01'
+stockendingdate = '2023-06-01'
