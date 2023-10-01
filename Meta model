@@ -1,0 +1,60 @@
+stock = 'aapl'
+stockstartingdate = '2010-01-01'
+stockendingdate = '2023-06-01'
+
+def get_meta_model(stock,stockstartingdate,stockendingdate):
+
+
+      data = yf.download(stock,stockstartingdate,stockendingdate)
+      Close = data['Close']
+      High = data['High']
+      Low = data['Low']
+      Volume = data['Volume']
+      Open = data['Open']
+      Volatility = getDailyVol(Close,span0=100)
+      returns = Close.pct_change()
+      # how many days we hold the stock which set the vertical barrier
+      t_final = 10
+      #the up and low boundary multipliers
+      upper_lower_multipliers = [1, 1]
+
+
+
+      #allign the index
+      prices = Close[Volatility.index]
+      data = get_buy_trend(data)
+      position = data['position']
+
+      barriers = get_3_barriers(Volatility,Close,t_final,upper_lower_multipliers)
+      labels=get_labels(barriers,returns,High,Low,Volume,Open,Volatility,position)
+
+      y = labels["meta_labels"]
+      x = labels[["returns","High","Low","Volume","Open","Volatility"]]
+      x_train, x_test, y_train, y_test  = train_test_split(x,y,test_size=0.25,random_state=42)
+      y_train = y_train.astype(int)
+
+      y_test = y_test.astype(int)
+
+      modelerf = RandomForestClassifier()
+      modelerf.fit(x_train,y_train)
+      importance = pd.DataFrame(modelerf.feature_importances_,index = x_train.columns, columns = ["importance"]).sort_values("importance", ascending = False)
+
+      score = modelerf.score(x_test,y_test)
+
+      # Faites des prédictions sur l'ensemble de test
+      predictions = modelerf.predict(x_test)
+
+      Confusion_matrix = pd.DataFrame(confusion_matrix(y_test,predictions),
+                                    index = ["1_donnés","-1_donnés"],
+                                    columns = ["1_prédits","-1_prédits"])
+
+      Report = classification_report(y_test, predictions)
+
+      return modelerf, importance, score, Confusion_matrix, Report
+
+
+
+
+Confusion_matrix,Report = get_meta_model(stock,stockstartingdate,stockendingdate)[3],get_meta_model(stock,stockstartingdate,stockendingdate)[4]
+print(Confusion_matrix)
+print(Report)
